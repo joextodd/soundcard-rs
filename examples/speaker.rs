@@ -9,15 +9,22 @@ fn main() {
     let audio = data.try_into_sixteen().unwrap();
 
     let config = Config {
-        sample_rate: header.sampling_rate as f64,
-        num_channels: header.channel_count as u32,
+        sample_rate: Some(header.sampling_rate as f64),
+        num_channels: Some(header.channel_count as u32),
+        block_size: None,
     };
+    let duration_ms: u64 =
+        (audio.len() as u32 / header.channel_count as u32 / header.sampling_rate * 1000)
+            .try_into()
+            .unwrap();
+
     let mut speaker = Speaker::default(config).unwrap();
-    let tx = speaker.start::<i16>();
-    for sample in audio {
-        tx.send(sample).unwrap();
+    let tx = speaker.start::<i16>().unwrap();
+    {
+        let mut buffer = tx.lock().unwrap();
+        buffer.extend(audio);
     }
 
-    std::thread::sleep(std::time::Duration::from_secs(6));
-    speaker.stop();
+    std::thread::sleep(std::time::Duration::from_millis(duration_ms));
+    speaker.stop().unwrap();
 }

@@ -12,22 +12,23 @@ fn main() {
     let mut wav_file = File::create(Path::new("output.wav")).unwrap();
 
     let config = Config {
-        sample_rate: 44100.0,
-        num_channels: 1,
+        sample_rate: Some(44100.0),
+        num_channels: Some(1),
+        block_size: None,
     };
     let mut mic = Microphone::default(config).unwrap();
-    let rx = mic.start::<i16>();
+    let rx = mic.start::<i16>().unwrap();
 
     let thread_audio = audio.clone();
     std::thread::spawn(move || {
-        while let Ok(sample) = rx.recv() {
+        while let Ok(samples) = rx.recv() {
             let mut audio = thread_audio.lock().unwrap();
-            audio.push(sample);
+            audio.extend(samples);
         }
     });
 
-    std::thread::sleep(std::time::Duration::from_secs(5));
-    mic.stop();
+    std::thread::sleep(std::time::Duration::from_secs(10));
+    mic.stop().unwrap();
 
     let audio_data = audio.lock().unwrap().clone();
     let track = BitDepth::Sixteen(audio_data);
